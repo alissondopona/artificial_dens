@@ -2,11 +2,13 @@
 # Author: Alisson Peter Brito Dopona
 # PhD Student in Ecology - UFRN
 # Artificial dens paper
-# -------
+# ---
 # Standardization CPUE script
 # ----------------------------------------
 
-# -------- Loading Packages
+#rm(list = ls())
+
+# ----------------------------------------- Load the packages
 library(tidyverse)
 library(mgcv)
 library(gratia)
@@ -14,34 +16,23 @@ library(gratia)
 # Open graphics in other window
 #options(device = "wayland")
 
-
-# Loading dataset
+# ----------------------------------------- Load the database
 dat <- read.csv("Data/data.csv", 
                 stringsAsFactors = T)
-
 glimpse(dat)
-# -------------------------------------------------------------------------------------------
-#                                     COMPUTING CPUE                                        #
-# -------------------------------------------------------------------------------------------
 
+# ----------------------------------------- Calculate CPUE
 dat$cpue <- (dat$catch/(dat$n_divers*dat$time_fishing_h))
 summary(dat$cpue)
 
-# -------------------------------------------------------------------------------------------
-#                             SELECTING MODIFIED ENVIRONMENT                                #
-# -------------------------------------------------------------------------------------------
-
+# ----------------------------------------- Select modified environment
 dat2 <- droplevels(dat %>% 
                      filter(
                        seascape == "Modified"
                      ))
 
-# -----------------------------------------------------------------------------------------
-#                           Incorporate accumulative n vessels                            #
-# -----------------------------------------------------------------------------------------
-
+# ----------------------------------------- Calculate accumulative vessels
 # Primeiro criei um data frame que contenha o ano e o número de acúmulo de embarcaçoes atuando naquele ano.
-
 vessel_acc <- dat2 %>%
   distinct(name, boat_year) %>%
   count(boat_year, name = "acc_vessel")  %>% 
@@ -56,7 +47,6 @@ dat3 <- tibble(year = c(1981:1989),
 dat4 <- tibble(year = c(1991, 1993, 1998, 1999, 2001, 2003, 2012, 2013),
                acc_vessel = c(2, 4,10,10,15,16,34,34))
 
-
 vessel <- rbind(vessel_acc, dat3, dat4)
 
 vessel <- vessel[order(vessel$acc_vessel),]
@@ -64,12 +54,8 @@ vessel <- vessel[order(vessel$acc_vessel),]
 dat2 <- dat2 %>%
   left_join(vessel, by = "year")
 
-# ----------------------------------------------------------------------------------------#
-#                                     Standardized CPUE                                   #
-# -----------------------------------------------------------------------------------------
-
-# ------------------------------ Creating Model
-
+# ----------------------------------------- Standardize CPUE
+# --- Create models
 mod1 <- mgcv::gam(cpue ~ environment + 
                     pots +
                     s(fishing_exp) +
@@ -80,7 +66,6 @@ mod1 <- mgcv::gam(cpue ~ environment +
                   family = Gamma(link = "log"),
                   data = dat2,
                   method = "REML")
-summary(mod1)
 
 mod2 <- mgcv::gam(cpue ~ environment + 
                     pots +
@@ -92,8 +77,6 @@ mod2 <- mgcv::gam(cpue ~ environment +
                   data = dat2,
                   method = "REML")
 
-summary(mod2)
-
 mod3 <- mgcv::gam(cpue ~ environment + 
                     pots +
                     s(year, k = 5) +
@@ -103,28 +86,22 @@ mod3 <- mgcv::gam(cpue ~ environment +
                   data = dat2,
                   method = "REML")
 
-summary(mod3)
-
 # O ano nao é significativo, mas mantemos ele porque é o nosso eixo x. E essa nao significância, na verdade, mostra que a CPUE nao tem mudado ao longo do tempo. Ou seja, as mudanças observadaso ano sao devido as mudanças no tempo.
-
-
 AIC(mod1, mod2, mod3)
-
 stdz_cpue <- mod3
 
-# ------------------------------ Predicting 
+# --- Predic 
 dat5 <- dat2
 dat5$pots <- as.factor("No")
 
 # ---
-
 dat5$cpue_standardized <- predict(
   stdz_cpue,
   newdata = dat5,
   type = "response",
   exclude = "s(name)")
 
-# ------------------------------- Visualizing Standardization
+# ----------------------------------------- Visualize Standardization
 x11(width = 15, height = 11)
 ggplot2::ggplot(dat5, aes(x = year, 
                  y = cpue_standardized, 
@@ -143,11 +120,13 @@ ggplot2::ggplot(dat5, aes(x = year,
   scale_color_manual(values = c("cornflowerblue", "black"))+
   scale_fill_manual(values = c("cornflowerblue", "black"))
 
-#ggsave("Output/cpue_stdz.png", width  = 6, height = 3, dpi = 300, bg = "white")
+ggsave("Output/cpue_stdz.png", 
+       width  = 6, 
+       height = 3, 
+       dpi = 300, 
+       bg = "white")
 
-
-# ----------------------------- Vizualizing all environments
-
+# ----------------------------------------- Vizualize all environments
 dat_unmodified <- droplevels(dat %>% 
                                filter(
                                  seascape == "Unmodified"
@@ -158,8 +137,7 @@ dat_modified <- droplevels(dat5 %>%
                                seascape == "Modified"
                              ))
 
-###
-
+# ----------------------------------------- Create dataframe
 dat_unmodified <- dat_unmodified[, c("year", "cpue", "environment", "seascape")]
 
 dat_modified <- dat_modified[, c("year", "cpue_standardized", "environment", "seascape")]
@@ -168,18 +146,13 @@ names(dat_modified) <- c("year", "cpue", "environment", "seascape")
 
 dat3 <- rbind(dat_unmodified, dat_modified)
 
-
-# -----------------------------
-
-
 levels(dat5$environment)
 dat5 <- dat5 %>% 
   mutate(environment = recode(environment,
                               "Flat Biogenic Plateaus (n=67)" = "Flat Biogenic Plateaus",
                               "Gravel Beds (n=57)" = "Gravel Beds"))
 
-# ------------------------------ Comparing Smooths Recalled x Standardized CPUE
-
+# ----------------------------------------- Compare Smooths Recalled x Standardized CPUE
 gam_recalled <- gam(cpue ~ 
                       s(year, 
                         by = environment, 
@@ -200,7 +173,6 @@ gam_std <- gam(cpue_standardized ~
                method = "REML")
 summary(gam_std)
 
-
 comp <- compare_smooths(gam_recalled, gam_std)
 
 draw(comp) &
@@ -219,8 +191,10 @@ draw(comp) &
   scale_fill_manual(values = c("cornflowerblue", "black"), 
                     name = NULL,
                     labels = c("GAM Recalled", "GAM Standardized"))
-  
 
-
-ggsave("Output/compare_smooths.png", width  = 8, height = 4, dpi = 300, bg = "white")
+ggsave("Output/compare_smooths.png", 
+       width  = 8, 
+       height = 4, 
+       dpi = 300, 
+       bg = "white")
 

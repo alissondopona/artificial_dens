@@ -1,35 +1,30 @@
 # -------------------------------------------------------------------------------------------
 # Author: Alisson Peter Brito Dopona
 # PhD Student in Ecology - UFRN
-# Attraction x Production script
+# Artificial dens paper
+# ---
 # Construction of models
 # ------------------------------------------------------------------------------------------
 
 #rm(list = ls())
 
-# -------- Loading Packages
+# ----------------------------------------- Load the packages
 library(tidyverse)
 library(mgcv)
-library(GGally)
 library(gratia)
-#library(performance)
 
-# Open graphics in other window
-options(device = "x11")
-
-# Loading dataset
+# ----------------------------------------- Load the database
 dat <- read.csv("Data/data.csv", 
                 stringsAsFactors = T)
-# ---------------------------------------------------------------------------------------
-#                                     COMPUTING CPUE                                    #
-# ---------------------------------------------------------------------------------------
 
+# Open graphics in other window
+#options(device = "x11", x11 = list(width = 10, height = 7))
+
+# ----------------------------------------- Calculate CPUE
 dat$cpue <- (dat$catch/(dat$n_divers*dat$time_fishing_h))
 summary(dat$cpue)
 
-# ---------------------------------------------------------------------------------------
-#                                     Ordering Variables                                #
-# ---------------------------------------------------------------------------------------
+# ----------------------------------------- Organize the variables
 # Environment
 dat$environment <- factor(dat$environment, 
                           levels = c("Shallow Sedimentary Reefs (n=41)",
@@ -45,11 +40,8 @@ dat$type_boat <- factor(dat$type_boat,
                         levels = c ("sailboat", "engine_boat"))
 
 
-# ---------------------------------------------------------------------------------------
-#                                     CREATING MODELS                                  #
-# ---------------------------------------------------------------------------------------
+# ----------------------------------------- Create models
 # Retirando as varáveis pots e tipo de embarcação não muda nada na explicação do modelo.
-
 
 # --------------------- model1
 mod1 <- mgcv::gam(cpue ~ environment*period +
@@ -102,13 +94,12 @@ mod5 <- mgcv::gam(cpue ~ environment*period +
                   data = dat,
                   method = "REML")
 
-# -------------------- AIC and BIC
+# ----------------------------------- AIC and BIC
 
 AIC(mod1, mod2, mod3, mod4, mod5)
 BIC(mod1, mod2, mod3, mod4, mod5)
 
-# ------------------------------ Check model
-
+# ----------------------------------------- Check and visualize model diagnostics
 summary(mod5)
 
 gratia::draw(mod5) &
@@ -121,11 +112,9 @@ gratia::appraise(mod5,
 
 mgcv::k.check(mod5)
 
-
-# ------------------------------ Calculating changes in CPUE
+# ----------------------------------------- Calculate changes in CPUE
 
 # Since your model uses a log link function, the coefficients are on the log scale. To get proportional changes in CPUE, we exponentiate them:
-
 
 # O que esse calculo quer dizer:
 # Ao calcular o exponencial do(s) interceptos, mostramos o que a CPUE se tornou em relaçao ao que foi. Porém, queremos saber a diferença, entao subtraímos por 1. Para transformar em porcentagem, multiplicamos por 100 e arrendondamos para uma casa decimal.
@@ -145,8 +134,9 @@ restinga <- as.numeric(100*(round(exp(mod5$coefficients[8]+mod5$coefficients[5])
 # ------------------ Risca com parrachos
 as.numeric(100*(round(exp(mod5$coefficients[2])-1,2)))
 
-# ---------------------- Vizualizing changes in CPUE
 
+# ----------------------------------------- Visualizing changes in CPUE
+# --- Organize database
 dat2 <- data.frame(
   environment = c("Gravel Beds\n(n=57)",
                   "Flat Biogenic\nPlateaus (n=67)",
@@ -154,21 +144,13 @@ dat2 <- data.frame(
                   "Outer Reef\nSlope (n=30)"),
   change      = c(cascalho, restinga, parrachos, risca),
   sig         = c("***", "***", "ns", "***"),
-  seascape   = c("Modified", "Modified", "Unmodified", "Unmodified")
-)
-
-
-
+  seascape   = c("Modified", "Modified", "Unmodified", "Unmodified"))
 
 dat2 <- dat2 |>
   mutate(environment = factor(environment,
                               levels = environment[order(change)]))
 
-
-
-#########################
-
-
+# --- Create plot
 ggplot(dat2, aes(x = change, y = environment, fill = seascape)) +
   geom_vline(xintercept = 0, linewidth = 0.5, color = "grey20") +
   geom_col(aes(alpha = sig), width = 0.55, color = NA) +
@@ -207,7 +189,11 @@ ggplot(dat2, aes(x = change, y = environment, fill = seascape)) +
         plot.margin = margin(20, 30, 16, 16))
 
 
-ggsave("Output/cpue_change_plot.png", width  = 7, height = 4, dpi = 300, bg = "white")
+ggsave("Output/cpue_change_plot.png", 
+       width  = 7, 
+       height = 4, 
+       dpi = 300, 
+       bg = "white")
 
 
 

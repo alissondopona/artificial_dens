@@ -1,19 +1,23 @@
 # ----------------------------------------
 # Author: Alisson Peter Brito Dopona
 # PhD Student in Ecology - UFRN
-# Attraction x Production script
+# Artificial dens paper
+# ---
 # Fishers Perception
 # ----------------------------------------
 
-# ---------------------------------------------------------------------------------------
-#                                  FISHERS PERCEPTION                                   #
-# ---------------------------------------------------------------------------------------
+#rm(list = ls())
 
+# ----------------------------------------- Load the packages
+library(ggplot2)
+library(dplyr)
+
+# ----------------------------------------- Load the database
 dat_perc <- read.csv("Data/data_fp.csv", 
                      stringsAsFactors = TRUE)
-
 glimpse(dat_perc)
 
+# ----------------------------------------- Organize the variables
 dat_perc$qntd_octopus<- factor(dat_perc$qntd_octopus, 
                                levels = c("Increase",
                                           "Decrease",
@@ -22,8 +26,8 @@ dat_perc$qntd_octopus<- factor(dat_perc$qntd_octopus,
 dat_perc$natural_x_attract_increase<- factor(dat_perc$natural_x_attract_increase, 
                                              levels = c("Natural",
                                                         "Attraction"))
-#### 
 
+# ----------------------------------------- Calculate the percentages
 dat1 <- dat_perc %>% 
   count(qntd_octopus) %>% 
   mutate(porc = round((prop = n / sum(n))*100)) 
@@ -33,8 +37,7 @@ dat2 <- dat_perc %>%
   mutate(porc = round((prop = n / sum(n))*100)) 
 
 
-### Graphics
-
+# ----------------------------------------- Visualize plots
 par(mfrow = c(1,2))
 ggplot2::ggplot(dat1, aes(x = qntd_octopus, y = porc))+
   geom_bar(stat = "identity", 

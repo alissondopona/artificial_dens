@@ -5,44 +5,33 @@
 # CPUE changes
 # ----------------------------------------
 
-# ------------------------------ Loading Packages
-library(tidyverse)
-library(mgcv)
-library(GGally)
-library(gratia)
-library(flextable)
-#library(performance)
+#rm(list = ls())
 
-# Open graphics in other window
-#options(device = "x11")
+# ----------------------------------------- Load the packages
+library(ggplot2)
+library(dplyr)
 
-# ------------------------------- Loading dataset
+# ----------------------------------------- Load the database
 dat <- read.csv("Data/data.csv", 
                 stringsAsFactors = T)
 glimpse(dat)
 
-
-# ------------------------------- Ordering variables
-
-# Environment
-dat$environment <- factor(dat$environment, 
-                          levels = c("Cascalho (n=57)",
-                                     "Restinga (n=67)",
-                                     "Parrachos (n=41)",
-                                     "Risca (n=30)"))
+# ----------------------------------------- Organize the variables
 # Period
-dat$period <- factor(dat$period, levels = c ("Before", "After"))
+dat$period <- factor(dat$period, 
+                     levels = c ("Before", 
+                                 "After"))
 
 # Type Boat
-dat$type_boat <- factor(dat$type_boat, levels = c ("sailboat", "engine_boat"))
+dat$type_boat <- factor(dat$type_boat, 
+                        levels = c ("sailboat", 
+                                    "engine_boat"))
 
-
-# ------------------------------ Computing CPUE
+# ----------------------------------------- Calculate CPUE
 dat$cpue <- (dat$catch/(dat$n_divers*dat$time_fishing_h))
 summary(dat$cpue)
 
-# ------------------------------ Vizualizing
-
+# ----------------------------------------- Visualize plots
 ggplot(dat, aes(x = year, y = cpue)) +
   geom_point(aes(alpha = 0.2,
                  colour = seascape,
@@ -61,9 +50,14 @@ ggplot(dat, aes(x = year, y = cpue)) +
   labs(fill = "Seascape",
        color = "Seascape",)+
   scale_alpha(guide = 'none')+
-  scale_color_manual(values = c("cornflowerblue", "black"), name = NULL)+
-  scale_fill_manual(values = c("cornflowerblue", "black"), name = NULL)
+  scale_color_manual(values = c("cornflowerblue", 
+                                "black"), 
+                     name = NULL)+
+  scale_fill_manual(values = c("cornflowerblue", 
+                               "black"), 
+                    name = NULL)
   
-
-
-ggsave("Output/fig_gam.png",dpi = 300, width = 6, height = 6)
+ggsave("Output/fig_gam.png", 
+       dpi = 300, 
+       width = 6, 
+       height = 6)
