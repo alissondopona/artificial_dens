@@ -1,0 +1,332 @@
+---
+title: " "
+author: " "
+date: " "
+output: 
+  html_document:
+    number_sections: no
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    number_sections: no
+    toc: yes
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Analysis {.tabset}
+
+This document documents the workflow for data exploration, model building, and model selection, ensuring that each step of the analysis is transparent.
+
+Load the libraries
+
+```{r, warning=FALSE,message=FALSE}
+if(!require(tidyverse)){install.packages("tidyverse")}
+if(!require(mgcv)){install.packages("mgcv")}
+if(!require(GGally)){install.packages("GGally")}
+if(!require(gratia)){install.packages("gratia")}
+if(!require(flextable)){install.packages("flextable")}
+```
+
+### Data {.tabset}
+
+#### Load the database
+
+Load the database
+
+```{r}
+dat <- read.csv("Data/data.csv", 
+                stringsAsFactors = T)
+```
+
+Glimpse the database
+
+```{r}
+glimpse(dat)
+```
+
+#### Variables description
+                                        
+Variable        | Description
+----------------|-------------------------------------------------------------
+`name`          | Fisher’s name 
+`age`           | Fisher’s age 
+`date`          | Survey date 
+`local`         | Surveyed beaches 
+`fishing_exp`   | Fishing experience 
+`octopus_exp`   | Octopus fishing experience 
+`boat_year`     | Year of the first boat 
+`environment`   | Different fishing environments 
+`dives`         | Number of dives per day 
+`year`          | Year of observation 
+`period`        | Before or After pots implementation
+`catch`         | Octopus catch on a typical fishing day 
+`n_fishers`     | Number of fishers on the boat 
+`n_divers`      | Number of divers on the boat 
+`time_fishing_h`| Duration of the fishing trip in hours (excluding travel time)
+`pots`          | Presence or absence of pots
+
+#### Data exploration
+
+Reorder factor levels. Categorical variables were reordered to define the desired reference levels before model fitting. This ensures that model coefficients and contrasts are estimated relative to the intended baseline category, facilitating the interpretation of the results.
+
+
+```{r}
+# ------------------------------- Ordering variables
+# Environment
+dat$environment <- factor(dat$environment, 
+                          levels = c("Shallow Sedimentary Reefs (n=41)",
+                                     "Outer Reef Slope (n=30)",
+                                     "Gravel Beds (n=57)",
+                                     "Flat Biogenic Plateaus (n=67)"))
+
+# Period
+dat$period <- factor(dat$period, 
+                     levels = c ("Before",
+                                 "After"))
+# Type Boat
+dat$type_boat <- factor(dat$type_boat, 
+                        levels = c ("sailboat",
+                                    "engine_boat"))
+```
+
+
+ Here is the calculation for our response variable: Catch Per Unit Effort (cpue). It is computed as the ratio of the catch reported by the fisherman to the product of the number of divers on each vessel and the fishing hour (not including travel time). Next, we will check it. 
+
+```{r}
+dat$cpue <- (dat$catch/(dat$n_divers*dat$time_fishing_h))
+```
+
+<br>
+
+We begin by exploring the response variable (CPUE) to assess its distribution and identify potential patterns before model fitting.
+
+
+```{r}
+ggplot(dat, aes(x = environment, y = cpue))+
+  geom_boxplot()+ 
+  facet_wrap(~ period) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust=1))
+```
+<br>
+
+
+Dotplots are useful to identify outliers and homogeneity
+
+
+```{r}
+dotchart(dat$cpue)
+```
+
+We extreme values are not outliers. But we can observe some values near to zero.
+
+<br>
+
+Coplots help visualize how the response variable is related to the explanatory variables.
+
+
+```{r, fig.height=5, fig.width=8}
+ggplot2::ggplot(dat, aes(x = year, y = cpue))+
+  geom_point(aes(alpha = 0.3))+
+  facet_grid(period ~ environment)+
+  theme_bw()+
+  theme(legend.position = "none")  
+```
+
+<br>
+
+```{r, fig.height=5, fig.width=6}
+ggplot2::ggplot(dat, aes(x = year, y = cpue))+
+  geom_point(aes(alpha = 0.3))+
+  facet_grid(pots ~ period)+
+  theme_bw()+
+  theme(legend.position = "none")  
+```
+
+<br>
+
+This plot makes clear the relationship between the variables `period` and `pots`, given that pots are only present in the `after` period.
+I will remove the `pots` variable from the model, given that `before` and `after` refer to the effect of the pots.
+
+<br>
+
+Next, we inspect the CPUE distribution using a histogram to evaluate its shape and identify potential skewness or outliers.
+
+
+```{r, echo=FALSE}
+sumstat <- data.frame(stats = c("Mean",
+                                "Median"),
+                     value = c(mean(dat$cpue),
+                               median(dat$cpue)))
+```
+
+<br>
+
+```{r, fig.width=9}
+par(mfrow = c (1,2))
+ggplot(dat,aes(x = cpue))+
+  geom_histogram(bins = 30,
+                 alpha = 0.5)+
+  labs(x = "CPUE(kg/(n_divers*fishing_hours))",
+       y = "Frequency")+
+  geom_vline(data = sumstat, 
+             aes(xintercept = value,
+                 col = stats),
+             linetype = "dashed")+
+  theme_bw() +
+  theme(legend.position="none") +
+  ggplot(dat, aes(x = cpue)) +
+  geom_density() +
+  labs(x = "CPUE (kg / (n_divers * fishing_hours))",
+       y = "Densidad") +
+  geom_vline(data = sumstat, 
+             aes(xintercept = value,
+                 col = stats),
+             linetype = "dashed") +
+  theme_bw()
+  
+```
+<br>
+
+Although there are values very close to zero, there are no zero or negative values. We can also observe that the data distribution is right-skewed, with mean values exceeding median values. Therefore, for the modeling process, we can decide to use the Gamma distribution.
+
+
+```{r}
+summary(dat$cpue)
+```
+
+
+The mean is slightly greater than the median. There are some `cpue` (16) with values < 1. Below, we have the `cpue` histogram.
+
+
+### Models
+
+Model 1 - Full Model
+
+```{r}
+mod1 <- mgcv::gam(cpue ~ environment*period +
+                    pots+
+                    type_boat+
+                    s(fishing_exp)+
+                    s(octopus_exp)+
+                    s(year, k = 5) +
+                    s(name, bs = "re"),
+                  family = Gamma(link = "log"),
+                  data = dat,
+                  method = "REML")
+```
+
+```{r}
+summary(mod1)
+```
+
+The zero and NA estimates were attributed to perfect collinearity between pots and `period`, as `pots` was present only during the After period.
+
+
+Model 2 - The `pots` variable was removed.
+
+```{r}
+mod2 <- mgcv::gam(cpue ~ environment*period +
+                    type_boat+
+                    s(fishing_exp)+
+                    s(octopus_exp)+
+                    s(year, k = 5) +
+                    s(name, bs = "re"),
+                  family = Gamma(link = "log"),
+                  data = dat,
+                  method = "REML")
+```
+
+```{r}
+summary(mod2)
+```
+The effect of boat type was not statistically significant and was therefore excluded.
+
+Model 3 - The `type_boat` variable was removed.
+
+```{r}
+mod3 <- mgcv::gam(cpue ~ environment*period +
+                    s(fishing_exp)+
+                    s(octopus_exp)+
+                    s(year, k = 5) +
+                    s(name, bs = "re"),
+                  family = Gamma(link = "log"),
+                  data = dat,
+                  method = "REML")
+```
+
+```{r}
+summary(mod3)
+```
+
+The effect of octopus fishing experience was not statistically significant and was therefore excluded.
+
+Model 4 - The `octopus_exp` variable was removed.
+
+```{r}
+mod4 <- mgcv::gam(cpue ~ environment*period +
+                    s(fishing_exp)+
+                    s(year, k = 5) +
+                    s(name, bs = "re"),
+                  family = Gamma(link = "log"),
+                  data = dat,
+                  method = "REML")
+```
+
+The effect of fishing experience was not statistically significant and was therefore excluded.
+
+Model 5 - The `fishing_exp` variable was removed.
+
+```{r}
+mod5 <- mgcv::gam(cpue ~ environment*period +
+                    s(year, k = 5) +
+                    s(name, bs = "re"),
+                  family = Gamma(link = "log"),
+                  data = dat,
+                  method = "REML")
+```
+
+```{r}
+summary(mod5)
+```
+
+After removing the non-significant variables, all remaining predictors showed statistically significant effects.
+
+
+Finally, model selection was based on the Akaike Information Criterion (AIC), with the model exhibiting the lowest AIC considered the best-supported model.
+
+```{r}
+AIC(mod1, mod2, mod3, mod4, mod5)
+```
+
+
+### Check Model
+
+```{r}
+gratia::draw(mod5) &
+  theme_bw()
+```
+
+
+
+```{r}
+gratia::appraise(mod5,
+                 method = 'simulate',
+                 seed = 123) &
+  theme_bw()
+```
+
+
+
+```{r}
+mgcv::k.check(mod5)
+```
+
+
+
+
+
+

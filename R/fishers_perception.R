@@ -11,6 +11,7 @@
 # ----------------------------------------- Load the packages
 library(ggplot2)
 library(dplyr)
+library(patchwork)
 
 # ----------------------------------------- Load the database
 dat_perc <- read.csv("Data/data_fp.csv", 
@@ -38,7 +39,7 @@ dat2 <- dat_perc %>%
 
 
 # ----------------------------------------- Visualize plots
-par(mfrow = c(1,2))
+
 ggplot2::ggplot(dat1, aes(x = qntd_octopus, y = porc))+
   geom_bar(stat = "identity", 
            fill = "cornflowerblue",
@@ -47,9 +48,10 @@ ggplot2::ggplot(dat1, aes(x = qntd_octopus, y = porc))+
             vjust = -0.5) +
   labs(x = "Octopus Abundance",
        y = "Percentage (%)") +
-  scale_y_continuous(limits = c(0, 90)) +
-  theme_test(base_size = 12) +
-  ggplot2::ggplot(dat2, aes(x = natural_x_attract_increase, y = porc))+
+  scale_y_continuous(limits = c(0, 90),
+                     expand = expansion(0)) +
+  theme_classic(base_size = 12) +
+ggplot2::ggplot(dat2, aes(x = natural_x_attract_increase, y = porc))+
   geom_bar(stat = "identity", 
            fill = "cornflowerblue",
            width = 0.6) + 
@@ -57,8 +59,12 @@ ggplot2::ggplot(dat1, aes(x = qntd_octopus, y = porc))+
             vjust = -0.5) +
   labs(x = "Octopus Catch",
        y = NULL) +
-  scale_y_continuous(limits = c(0, 90)) +
-  theme_test(base_size = 12)
+  scale_y_continuous(limits = c(0, 90),
+                     expand = expansion(0)) +
+  theme_classic(base_size = 12)
 
 
-ggsave("Output/fig_fp.png",dpi = 300, width = 6, height = 3)
+ggsave("Output/fig_fp.png",
+       dpi = 300, 
+       width = 6, 
+       height = 3)
