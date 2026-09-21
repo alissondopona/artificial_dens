@@ -149,7 +149,7 @@ dat3 <- rbind(dat_unmodified, dat_modified)
 levels(dat5$environment)
 dat5 <- dat5 %>% 
   mutate(environment = recode(environment,
-                              "Flat Biogenic Plateaus (n=67)" = "Flat Biogenic Plateaus",
+                              "Flat Biogenic Plateaus (n=67)" = "Biogenic Plateaus",
                               "Gravel Beds (n=57)" = "Gravel Beds"))
 
 # ----------------------------------------- Compare Smooths Recalled x Standardized CPUE
@@ -175,14 +175,16 @@ summary(gam_std)
 
 comp <- compare_smooths(gam_recalled, gam_std)
 
-draw(comp) &
-  geom_vline(xintercept = 2013,
-             colour = "black",
-             linetype = "dashed") & 
-  geom_hline(yintercept = 0,
-             linetype = "dashed",
-             colour = "gray") &
-  theme_test(base_size = 12) &
+
+plot <- draw(comp)
+
+plot[[1]] <- plot[[1]] + ggtitle("Biogenic Plateaus")
+plot[[2]] <- plot[[2]] + ggtitle("Gravel Beds")
+
+plot & geom_vline(xintercept = 2013,
+             colour = "gray",
+             linetype = "dashed") &
+  theme_classic(base_size = 12) &
   theme(legend.position = "bottom") &
   labs(x = "Year") &
   scale_color_manual(values = c("cornflowerblue", "black"), 
@@ -193,7 +195,7 @@ draw(comp) &
                     labels = c("GAM Recalled", "GAM Standardized"))
 
 ggsave("Output/compare_smooths.png", 
-       width  = 8, 
+       width  = 6, 
        height = 4, 
        dpi = 300, 
        bg = "white")

@@ -24,13 +24,21 @@ dat <- read.csv("Data/data.csv",
 dat$cpue <- (dat$catch/(dat$n_divers*dat$time_fishing_h))
 summary(dat$cpue)
 
+# .............................. Change cariables
+dat <- dat |> 
+  mutate(environment = recode(environment,
+                            "Flat Biogenic Plateaus (n=67)" = "Biogenic Plateaus",
+                            "Gravel Beds (n=57)" = "Gravel Beds",
+                            "Outer Reef Slope (n=30)" = "Deep Reef",
+                            "Shallow Sedimentary Reefs (n=41)" = "Shallow Reef"))
+
 # ----------------------------------------- Organize the variables
 # Environment
 dat$environment <- factor(dat$environment, 
-                          levels = c("Shallow Sedimentary Reefs (n=41)",
-                                     "Outer Reef Slope (n=30)",
-                                     "Gravel Beds (n=57)",
-                                     "Flat Biogenic Plateaus (n=67)"))
+                          levels = c("Shallow Reef",
+                                     "Deep Reef",
+                                     "Gravel Beds",
+                                     "Biogenic Plateaus"))
 # Period
 dat$period <- factor(dat$period, 
                      levels = c ("Before", "After"))
@@ -138,22 +146,23 @@ as.numeric(100*(round(exp(mod5$coefficients[2])-1,2)))
 # ----------------------------------------- Visualizing changes in CPUE
 # --- Organize database
 dat2 <- data.frame(
-  environment = c("Gravel Beds\n(n=57)",
-                  "Flat Biogenic\nPlateaus (n=67)",
-                  "Shallow Sedimentary\nReefs (n=41)",
-                  "Outer Reef\nSlope (n=30)"),
+  environment = c("Gravel\nBeds",
+                  "Biogenic\nPlateaus",
+                  "Shallow\nReef",
+                  "Deep\nReef"),
   change      = c(cascalho, restinga, parrachos, risca),
   sig         = c("***", "***", "ns", "***"),
   seascape   = c("Modified", "Modified", "Unmodified", "Unmodified"))
 
 dat2 <- dat2 |>
   mutate(environment = factor(environment,
-                              levels = environment[order(change)]))
+                              levels = environment[order(change, decreasing = TRUE)]))
+# AQUI O DECREASING = TRUE QUE VAI DIZER COMO AS BARRAS VAO FICAR POSICIONADAS
 
 # --- Create plot
 ggplot(dat2, aes(x = change, y = environment, fill = seascape)) +
-  geom_vline(xintercept = 0, linewidth = 0.5, color = "grey20") +
-  geom_col(aes(alpha = sig), width = 0.55, color = NA) +
+  geom_vline(xintercept = 0, linewidth = 0.2, color = "grey", linetype = 3) +
+  geom_col(aes(alpha = sig), width = 0.3, color = NA) +
   geom_text(aes(label = ifelse(change > 0,
                                paste0("+", change, "%"),
                                paste0(change, "%")),
@@ -170,7 +179,7 @@ ggplot(dat2, aes(x = change, y = environment, fill = seascape)) +
                      labels = function(x) paste0(x, "%"),
                      expand = c(0, 0)) +
   labs(x = "Proportional Change in CPUE (%)", y = NULL) +
-  theme_test(base_size = 12) +
+  theme_void(base_size = 12) +
   theme(plot.title = element_text(face = "bold", size = 13, hjust = 0,
                                   margin = margin(b = 4)),
         plot.subtitle = element_text(size = 10, color = "grey40", hjust = 0,
@@ -182,16 +191,47 @@ ggplot(dat2, aes(x = change, y = environment, fill = seascape)) +
         axis.title.x = element_text(size = 10, color = "grey20",
                                    margin = margin(t = 8)),
         panel.grid.major.y = element_blank(),
-        panel.grid.major.x = element_line(color = "grey88", linewidth = 0.4),
         panel.grid.minor = element_blank(),
         legend.position = "bottom",
         legend.text = element_text(size = 10),
         plot.margin = margin(20, 30, 16, 16))
 
 
-ggsave("Output/cpue_change_plot.png", 
-       width  = 7, 
-       height = 4, 
+ggplot2::ggplot(dat2, aes(x = environment, y = change, fill = seascape)) +
+  geom_hline(yintercept = 0, linewidth = 0.2, colour = "gray", linetype = 3) +
+  geom_col( aes(alpha = sig), width = 0.8, colour = NA) +
+  geom_text(aes(label = ifelse(change > 0,
+                               paste0("+", change, "%"),
+                               paste0(change, "%")),
+                vjust = ifelse(change > 0, 1.15, -0.15)),
+            colour = "white", fontface = "bold", size = 3.3) +
+  geom_text(aes(label = sig, vjust = ifelse(change >0, -0.3, 1.3), color = sig),
+            fontface = "bold", size = 4) +
+  scale_fill_manual(values = c("Modified" = "cornflowerblue",
+                               "Unmodified" = "black"), name = NULL) +
+  scale_color_manual(values = c("***" = "grey20", "ns" = "grey60"), guide = "none") +
+  scale_alpha_manual(values = c("***" = 1, "ns" = 0.6), guide = "none") +
+  labs(y = "Proportional Change in CPUE (%)", x = NULL) +
+  theme_void(base_size = 12) +
+  theme(plot.title = element_text(face = "bold", size = 13, hjust = 0,
+                                  margin = margin(b = 4)),
+        plot.subtitle = element_text(size = 10, color = "grey40", hjust = 0,
+                                     margin = margin(b = 16)),
+        plot.caption = element_text(size = 9, color = "grey50", hjust = 0,
+                                    margin = margin(t = 12)),
+        axis.text.y = element_text(size = 10.5, color = "grey15", lineheight = 1.2),
+        axis.text.x = element_text(size = 9.5, color = "grey30"),
+        axis.title.x = element_text(size = 10, color = "grey20",
+                                    margin = margin(t = 8)),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "bottom",
+        legend.text = element_text(size = 10),
+        plot.margin = margin(20, 30, 16, 16))
+
+ggsave("Output/cpue_change_plot3.png", 
+       width  = 3, 
+       height = 7, 
        dpi = 300, 
        bg = "white")
 
