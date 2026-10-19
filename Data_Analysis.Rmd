@@ -76,11 +76,18 @@ Reorder factor levels. Categorical variables were reordered to define the desire
 ```{r}
 # ------------------------------- Ordering variables
 # Environment
+dat <- dat %>% 
+  mutate(environment = recode(environment,
+                              "Flat Biogenic Plateaus (n=67)" = "Biogenic Plateaus (n=67)",
+                              "Gravel Beds (n=57)" = "Gravel Beds (n=57)",
+                              "Outer Reef Slope (n=30)" = "Deep Reef (n=30)",
+                              "Shallow Sedimentary Reefs (n=41)" = "Shallow Reef (n=41)"))
+
 dat$environment <- factor(dat$environment, 
-                          levels = c("Shallow Sedimentary Reefs (n=41)",
-                                     "Outer Reef Slope (n=30)",
+                          levels = c("Shallow Reef (n=41)",
+                                     "Deep Reef (n=30)",
                                      "Gravel Beds (n=57)",
-                                     "Flat Biogenic Plateaus (n=67)"))
+                                     "Biogenic Plateaus (n=67)"))
 
 # Period
 dat$period <- factor(dat$period, 
@@ -108,6 +115,7 @@ We begin by exploring the response variable (CPUE) to assess its distribution an
 ggplot(dat, aes(x = environment, y = cpue))+
   geom_boxplot()+ 
   facet_wrap(~ period) +
+  labs(x = "Habitat", y = "CPUE")+
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust=1))
 ```
@@ -118,10 +126,15 @@ Dotplots are useful to identify outliers and homogeneity
 
 
 ```{r}
-dotchart(dat$cpue)
+dat |> 
+  mutate(row_id = row_number()) |> 
+  ggplot(aes(x= cpue, y = row_id))+
+  geom_point(alpha = 0.5)+
+  labs(x = "CPUE", y = NULL)+
+  theme_bw()
 ```
 
-We extreme values are not outliers. But we can observe some values near to zero.
+The extreme values are not outliers. But we can observe some values near to zero.
 
 <br>
 
@@ -191,7 +204,7 @@ ggplot(dat,aes(x = cpue))+
 ```
 <br>
 
-Although there are values very close to zero, there are no zero or negative values. We can also observe that the data distribution is right-skewed, with mean values exceeding median values. Therefore, for the modeling process, we can decide to use the Gamma distribution.
+Although there are values very close to zero, there are no zero or negative values. We can also observe that the data distribution is right-skewed, with mean values exceeding median values. Therefore, for the modeling process, we can decide to use the Tweedie distribution.
 
 
 ```{r}
@@ -207,14 +220,13 @@ The mean is slightly greater than the median. There are some `cpue` (16) with va
 Model 1 - Full Model
 
 ```{r}
-mod1 <- mgcv::gam(cpue ~ environment*period +
-                    pots+
+mod1 <- mgcv::gam(cpue ~ environment+ 
                     type_boat+
                     s(fishing_exp)+
                     s(octopus_exp)+
-                    s(year, k = 5) +
+                    s(year, k = 5, by = environment) +
                     s(name, bs = "re"),
-                  family = Gamma(link = "log"),
+                  family = tw(link = "log"),
                   data = dat,
                   method = "REML")
 ```
@@ -223,19 +235,17 @@ mod1 <- mgcv::gam(cpue ~ environment*period +
 summary(mod1)
 ```
 
-The zero and NA estimates were attributed to perfect collinearity between pots and `period`, as `pots` was present only during the After period.
+The effect of boat type was not statistically significant and was therefore excluded.
 
-
-Model 2 - The `pots` variable was removed.
+Model 2 - The `type_boat` variable was removed.
 
 ```{r}
-mod2 <- mgcv::gam(cpue ~ environment*period +
-                    type_boat+
+mod2 <- mgcv::gam(cpue ~ environment + 
                     s(fishing_exp)+
                     s(octopus_exp)+
-                    s(year, k = 5) +
+                    s(year, k = 5, by = environment) +
                     s(name, bs = "re"),
-                  family = Gamma(link = "log"),
+                  family = tw(link = "log"),
                   data = dat,
                   method = "REML")
 ```
@@ -243,17 +253,16 @@ mod2 <- mgcv::gam(cpue ~ environment*period +
 ```{r}
 summary(mod2)
 ```
-The effect of boat type was not statistically significant and was therefore excluded.
+The effect of `octopus fishing experience` experience was not statistically significant and was therefore excluded.
 
-Model 3 - The `type_boat` variable was removed.
+Model 3 - The `octopus fishing` variable was removed.
 
 ```{r}
-mod3 <- mgcv::gam(cpue ~ environment*period +
+mod3 <- mgcv::gam(cpue ~ environment + 
                     s(fishing_exp)+
-                    s(octopus_exp)+
-                    s(year, k = 5) +
+                    s(year, k = 5, by = environment) +
                     s(name, bs = "re"),
-                  family = Gamma(link = "log"),
+                  family = tw(link = "log"),
                   data = dat,
                   method = "REML")
 ```
@@ -261,36 +270,17 @@ mod3 <- mgcv::gam(cpue ~ environment*period +
 ```{r}
 summary(mod3)
 ```
+The effect of `fishing experience` experience was not statistically significant and was therefore excluded.
 
-The effect of octopus fishing experience was not statistically significant and was therefore excluded.
-
-Model 4 - The `octopus_exp` variable was removed.
+Model 4 - The `fishing_exp` variable was removed.
 
 ```{r}
-mod4 <- mgcv::gam(cpue ~ environment*period +
-                    s(fishing_exp)+
-                    s(year, k = 5) +
+mod4 <- mgcv::gam(cpue ~ environment+
+                    s(year, k = 5, by = environment) +
                     s(name, bs = "re"),
-                  family = Gamma(link = "log"),
+                  family = tw(link = "log"),
                   data = dat,
                   method = "REML")
-```
-
-The effect of fishing experience was not statistically significant and was therefore excluded.
-
-Model 5 - The `fishing_exp` variable was removed.
-
-```{r}
-mod5 <- mgcv::gam(cpue ~ environment*period +
-                    s(year, k = 5) +
-                    s(name, bs = "re"),
-                  family = Gamma(link = "log"),
-                  data = dat,
-                  method = "REML")
-```
-
-```{r}
-summary(mod5)
 ```
 
 After removing the non-significant variables, all remaining predictors showed statistically significant effects.
@@ -299,21 +289,21 @@ After removing the non-significant variables, all remaining predictors showed st
 Finally, model selection was based on the Akaike Information Criterion (AIC), with the model exhibiting the lowest AIC considered the best-supported model.
 
 ```{r}
-AIC(mod1, mod2, mod3, mod4, mod5)
+AIC(mod1, mod2, mod3, mod4)
 ```
 
 
 ### Check Model
 
 ```{r}
-gratia::draw(mod5) &
+gratia::draw(mod4) &
   theme_bw()
 ```
 
 
 
 ```{r}
-gratia::appraise(mod5,
+gratia::appraise(mod4,
                  method = 'simulate',
                  seed = 123) &
   theme_bw()
@@ -322,11 +312,91 @@ gratia::appraise(mod5,
 
 
 ```{r}
-mgcv::k.check(mod5)
+mgcv::k.check(mod4)
+```
+
+### Plot temporal change
+
+```{r, fig.show='hide'}
+p_obj <- plot(mod4, residuals = TRUE)
+p_sr <- p_obj[[1]]
+p_dr <- p_obj[[2]]
+p_gb <- p_obj[[3]]
+p_bp <- p_obj[[4]]
 ```
 
 
+```{r}
+# Shallow reefs
+sm_sr <- as.data.frame(p_sr[c("x", "se", "fit")])
+data_sr <- as.data.frame(p_sr[c("raw", "p.resid")])
+# Deep reefs
+sm_dr <- as.data.frame(p_dr[c("x", "se", "fit")])
+data_dr <- as.data.frame(p_dr[c("raw", "p.resid")])
+# Gravel Beds
+sm_gb <- as.data.frame(p_gb[c("x", "se", "fit")])
+data_gb <- as.data.frame(p_gb[c("raw", "p.resid")])
+# Biogenic Plateaus
+sm_bp <- as.data.frame(p_bp[c("x", "se", "fit")])
+data_bp <- as.data.frame(p_bp[c("raw", "p.resid")])
+```
+
+```{r}
+## plot Shallow Reefs
+plot_sr <- ggplot(sm_sr, aes(x = x, y = fit)) +
+  geom_rug(data = data_sr, mapping = aes(x = raw, y = NULL),
+           sides = "b") +
+  geom_ribbon(aes(ymin = fit - se, ymax = fit + se, y = NULL),
+              alpha = 0.3) +
+  geom_line() +
+  geom_vline(xintercept = 2013, linetype = "dashed", colour = "gray") +
+  labs(x = "", y = " ") +
+  theme_classic()+
+  ggtitle("Shallow Reefs")
 
 
+## plot Deep Reefs
+plot_dr <- ggplot(sm_dr, aes(x = x, y = fit)) +
+  geom_rug(data = data_dr, mapping = aes(x = raw, y = NULL),
+           sides = "b") +
+  geom_ribbon(aes(ymin = fit - se, ymax = fit + se, y = NULL),
+              alpha = 0.3) +
+  geom_line() +
+  geom_vline(xintercept = 2013, linetype = "dashed", colour = "gray") +
+  labs(x = "", y = "") +
+  theme_classic()+
+  ggtitle("Deep Reefs")
+
+## plot Gravel Beds
+plot_gb <- ggplot(sm_gb, aes(x = x, y = fit)) +
+  geom_rug(data = data_gb, mapping = aes(x = raw, y = NULL),
+           sides = "b") +
+  geom_ribbon(aes(ymin = fit - se, ymax = fit + se, y = NULL),
+              alpha = 0.3,
+              fill = "cornflowerblue") +
+  geom_line(colour = "cornflowerblue") +
+  geom_vline(xintercept = 2013, linetype = "dashed", colour = "gray") +
+  labs(x = "Year", y = "") +
+  theme_classic()+
+  ggtitle("Gravel Beds")
+
+## plot Biogenic Plateus
+plot_bp <- ggplot(sm_bp, aes(x = x, y = fit)) +
+  geom_rug(data = data_bp, mapping = aes(x = raw, y = NULL),
+           sides = "b") +
+  geom_ribbon(aes(ymin = fit - se, ymax = fit + se, y = NULL),
+              alpha = 0.3,
+              fill = "cornflowerblue") +
+  geom_line(colour = "cornflowerblue") +
+  geom_vline(xintercept = 2013, linetype = "dashed", colour = "gray") +
+  labs(x = "Year", y = "") +
+  theme_classic()+
+  ggtitle("Biogenic Plateus")
+```
+
+```{r}
+plot <- gridExtra::grid.arrange(plot_sr, plot_dr, plot_gb, plot_bp, ncol=2, nrow=2)
+plot
+```
 
 

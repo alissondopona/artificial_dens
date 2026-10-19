@@ -52,73 +52,68 @@ dat$type_boat <- factor(dat$type_boat,
 # Retirando as varáveis pots e tipo de embarcação não muda nada na explicação do modelo.
 
 # --------------------- model1
-mod1 <- mgcv::gam(cpue ~ environment*period +
-                    pots+
+mod1 <- mgcv::gam(cpue ~ environment+ 
                     type_boat+
                     s(fishing_exp)+
                     s(octopus_exp)+
-                    s(year, k = 5) +
+                    s(year, k = 5, by = environment) +
                     s(name, bs = "re"),
-                  family = Gamma(link = "log"),
+                  family = tw(link = "log"),
                   data = dat,
                   method = "REML")
 
-
 # --------------------- model2
-mod2 <- mgcv::gam(cpue ~ environment*period +
-                    type_boat+
+mod2 <- mgcv::gam(cpue ~ environment + 
                     s(fishing_exp)+
                     s(octopus_exp)+
-                    s(year, k = 5) +
+                    s(year, k = 5, by = environment) +
                     s(name, bs = "re"),
-                  family = Gamma(link = "log"),
+                  family = tw(link = "log"),
                   data = dat,
                   method = "REML")
 
 # --------------------- model3
-mod3 <- mgcv::gam(cpue ~ environment*period +
+mod3 <- mgcv::gam(cpue ~ environment + 
                     s(fishing_exp)+
-                    s(octopus_exp)+
-                    s(year, k = 5) +
+                    s(year, k = 5, by = environment) +
                     s(name, bs = "re"),
-                  family = Gamma(link = "log"),
+                  family = tw(link = "log"),
                   data = dat,
                   method = "REML")
 
 # --------------------- model4
-mod4 <- mgcv::gam(cpue ~ environment*period +
-                    s(fishing_exp)+
-                    s(year, k = 5) +
+mod4 <- mgcv::gam(cpue ~ environment+
+                    s(year, k = 5, by = environment) +
                     s(name, bs = "re"),
-                  family = Gamma(link = "log"),
+                  family = tw(link = "log"),
                   data = dat,
                   method = "REML")
 
-# --------------------- model5
-mod5 <- mgcv::gam(cpue ~ environment*period +
-                    s(year, k = 5) +
-                    s(name, bs = "re"),
-                  family = Gamma(link = "log"),
-                  data = dat,
-                  method = "REML")
+# adicionando o "by = xxx" no termo suavizador s() significa que estamos colocando uma variável (e essa variável pode ser numérica ou fator), para multiplicar ou interagir com o termo. Eu posso usar de duas formas a interação com o termo suavizante: s(v1, v2), se as duas forem termos suavizantes (ou seja, s()), ou s(v1, by = v2), se v1 for suavizador e v2 for linear (fator ou continulo):
+#             Quando v2 é um fator, o termo suavizante varia nos diferentes níveis de v2. 
+#             Quando é contínuo, o efeito linear varia suavimente com v1
+
+
+plotGam
 
 # ----------------------------------- AIC and BIC
 
-AIC(mod1, mod2, mod3, mod4, mod5)
-BIC(mod1, mod2, mod3, mod4, mod5)
+AIC(mod1, mod2, mod3, mod4)
+BIC(mod1, mod2, mod3, mod4)
 
 # ----------------------------------------- Check and visualize model diagnostics
-summary(mod5)
+summary(mod4)
 
-gratia::draw(mod5) &
+gratia::draw(mod4) &
   theme_bw()
 
-gratia::appraise(mod5,
+gratia::appraise(mod4,
                  method = 'simulate',
                  seed = 123) &
   theme_bw()
 
-mgcv::k.check(mod5)
+
+mgcv::k.check(mod4)
 
 # ----------------------------------------- Calculate changes in CPUE
 

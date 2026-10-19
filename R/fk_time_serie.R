@@ -77,7 +77,7 @@ ggplot(dat, aes(x = year, y = cpue)) +
                                "black"), 
                     name = NULL)
   
-ggsave("Output/fig_gam5.png",
+ggsave("Output/fig_gam_ts.png",
        dpi = 700, 
        width = 8, 
        height = 6)

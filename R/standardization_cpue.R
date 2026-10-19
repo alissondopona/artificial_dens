@@ -63,7 +63,7 @@ mod1 <- mgcv::gam(cpue ~ environment +
                     s(year, k = 5) +
                     s(acc_vessel, bs = "tp") +
                     s(name, bs = "re"),
-                  family = Gamma(link = "log"),
+                  family = tw(link = "log"),
                   data = dat2,
                   method = "REML")
 
@@ -73,7 +73,7 @@ mod2 <- mgcv::gam(cpue ~ environment +
                     s(year, k = 5) +
                     s(acc_vessel, bs = "tp") +
                     s(name, bs = "re"),
-                  family = Gamma(link = "log"),
+                  family = tw(link = "log"),
                   data = dat2,
                   method = "REML")
 
@@ -82,15 +82,48 @@ mod3 <- mgcv::gam(cpue ~ environment +
                     s(year, k = 5) +
                     s(acc_vessel, bs = "tp") +
                     s(name, bs = "re"),
-                  family = Gamma(link = "log"),
+                  family = tw(link = "log"),
                   data = dat2,
                   method = "REML")
 
-# O ano nao é significativo, mas mantemos ele porque é o nosso eixo x. E essa nao significância, na verdade, mostra que a CPUE nao tem mudado ao longo do tempo. Ou seja, as mudanças observadaso ano sao devido as mudanças no tempo.
-AIC(mod1, mod2, mod3)
-stdz_cpue <- mod3
+mod4 <- mgcv::gam(cpue ~ environment +
+                    s(year, k = 5) +
+                    s(acc_vessel, bs = "tp") +
+                    s(name, bs = "re"),
+                  family = tw(link = "log"),
+                  data = dat2,
+                  method = "REML")
 
-# --- Predic 
+
+mod5 <- mgcv::gam(cpue ~ environment + 
+                    pots +
+                    s(year, k = 5) +
+                    s(name, bs = "re"),
+                  family = tw(link = "log"),
+                  data = dat2,
+                  method = "REML")
+
+# AIC
+AIC(mod1, mod2, mod3, mod4, mod5)
+
+# Por que eu deveria manter as duas variáveis? Ano e Periodo de fato compartilham muita explicação. Porém, a variável ano busca explicar a variação ao longo de toda a série temporal. Nós estamos preocupados com a variação em relação ao período: antes x depois.
+
+summary(mod3)
+
+gratia::draw(mod3) &
+  theme_bw()
+
+gratia::appraise(mod3,
+                 method = 'simulate',
+                 seed = 123) &
+  theme_bw()
+
+
+# O ano nao é significativo, mas mantemos ele porque é o nosso eixo x. E essa nao significância, na verdade, mostra que a CPUE nao tem mudado ao longo do tempo. Ou seja, as mudanças observadaso ano sao devido as mudanças no tempo. Na verdade, podemos pensar que essa mudança pode ser pq os potes puxaram toda a explicação da variação. 
+
+stdz_cpue <- mod5
+
+# --- Prediction
 dat5 <- dat2
 dat5$pots <- as.factor("No")
 
@@ -100,31 +133,6 @@ dat5$cpue_standardized <- predict(
   newdata = dat5,
   type = "response",
   exclude = "s(name)")
-
-# ----------------------------------------- Visualize Standardization
-x11(width = 15, height = 11)
-ggplot2::ggplot(dat5, aes(x = year, 
-                 y = cpue_standardized, 
-                 colour = seascape,
-                 fill = seascape))+
-  geom_smooth(method = "gam")+
-  geom_vline(xintercept = 2013,
-             colour = "black",
-             linetype = "dashed")+
-  labs(x = "Year", y = "CPUE(Kg/Nº diver*Fishing Hours)") +
-  facet_wrap(~environment,
-             scale = "free")+
-  ylim(0,6.5)+
-  theme_test(base_size = 12) +
-  theme(legend.position = "none")+
-  scale_color_manual(values = c("cornflowerblue", "black"))+
-  scale_fill_manual(values = c("cornflowerblue", "black"))
-
-ggsave("Output/cpue_stdz.png", 
-       width  = 6, 
-       height = 3, 
-       dpi = 300, 
-       bg = "white")
 
 # ----------------------------------------- Vizualize all environments
 dat_unmodified <- droplevels(dat %>% 
